@@ -1,0 +1,1905 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>储蓄追踪 - 理财小助手</title>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide 图标库 -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.544.0/dist/umd/lucide.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <!-- 统一的 Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#8A9A5B', // 莫兰蒂主色调 - 柔和的绿色
+            success: '#4CAF50', // 达成状态 - 绿色
+            warning: '#FFC107', // 接近达成 - 黄色
+            danger: '#F44336',  // 未达成/超支 - 红色
+            secondary: '#9C27B0', // 辅助色 - 紫色
+            info: '#2196F3',    // 辅助色 - 蓝色
+            light: '#F5F5F5',   // 背景色 - 浅灰色
+            dark: '#333333',    // 主要文字 - 深灰色
+            'text-secondary': '#666666', // 次要文字 - 中灰色
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .text-shadow {
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+      }
+      .card-shadow {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+      .progress-ring-circle {
+        transition: stroke-dashoffset 0.5s ease;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+      }
+    }
+  </style>
+</head>
+<body class="bg-light min-h-screen font-sans text-dark">
+  <!-- 顶部导航栏 -->
+  <nav class="bg-white shadow-md sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i data-lucide="piggy-bank" class="text-primary"></i>
+        <h1 class="text-xl font-bold text-primary">储蓄追踪</h1>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button id="btn-notifications" class="p-2 rounded-full hover:bg-gray-100">
+          <i data-lucide="bell" class="text-text-secondary"></i>
+        </button>
+        <button id="btn-settings" class="p-2 rounded-full hover:bg-gray-100">
+          <i data-lucide="settings" class="text-text-secondary"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 主内容区 -->
+  <main class="container mx-auto px-4 py-6 pb-24">
+    <!-- 页面导航 -->
+    <div class="flex overflow-x-auto mb-6 pb-2 -mx-4 px-4 hide-scrollbar">
+      <button class="tab-btn active whitespace-nowrap px-6 py-2 mx-2 rounded-full bg-primary text-white font-medium" data-tab="dashboard">
+        仪表盘
+      </button>
+      <button class="tab-btn whitespace-nowrap px-6 py-2 mx-2 rounded-full bg-white text-text-secondary font-medium" data-tab="goals">
+        目标设置
+      </button>
+      <button class="tab-btn whitespace-nowrap px-6 py-2 mx-2 rounded-full bg-white text-text-secondary font-medium" data-tab="allocation">
+        资金分配
+      </button>
+      <button class="tab-btn whitespace-nowrap px-6 py-2 mx-2 rounded-full bg-white text-text-secondary font-medium" data-tab="transactions">
+        记账
+      </button>
+      <button class="tab-btn whitespace-nowrap px-6 py-2 mx-2 rounded-full bg-white text-text-secondary font-medium" data-tab="analysis">
+        统计分析
+      </button>
+    </div>
+
+    <!-- 仪表盘页面 -->
+    <div id="dashboard-tab" class="tab-content active">
+      <!-- 储蓄目标总览卡片 -->
+      <div class="bg-white rounded-xl p-6 mb-6 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">储蓄目标总览</h2>
+          <button id="edit-goal-btn" class="text-primary hover:text-primary/80">
+            <i data-lucide="edit" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <div class="flex flex-col md:flex-row items-center">
+          <!-- 进度环 -->
+          <div class="relative w-40 h-40 mb-4 md:mb-0 md:mr-8">
+            <svg class="w-full h-full" viewBox="0 0 100 100">
+              <!-- 背景圆环 -->
+              <circle class="text-gray-200" stroke-width="8" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
+              <!-- 进度圆环 -->
+              <circle id="progress-ring" class="progress-ring-circle text-primary" stroke-width="8" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" stroke-dasharray="251.2" stroke-dashoffset="175.84" />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="progress-percentage" class="text-3xl font-bold text-primary">30%</span>
+              <span class="text-sm text-text-secondary">已完成</span>
+            </div>
+          </div>
+          <!-- 目标信息 -->
+          <div class="flex-1 w-full">
+            <div class="mb-3">
+              <div class="flex justify-between mb-1">
+                <span class="text-sm text-text-secondary">目标金额</span>
+                <span id="goal-amount" class="text-sm font-medium">¥100,000</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-text-secondary">已储蓄</span>
+                <span id="saved-amount" class="text-sm font-medium">¥30,000</span>
+              </div>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+              <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 30%"></div>
+            </div>
+            <div class="flex justify-between items-center">
+              <div>
+                <span class="text-sm text-text-secondary">剩余时间</span>
+                <p id="time-left" class="font-medium">18个月</p>
+              </div>
+              <div>
+                <span class="text-sm text-text-secondary">每月需存</span>
+                <p id="monthly-required" class="font-medium">¥3,889</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 本月收支概览 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">本月收入</h2>
+            <button class="text-primary hover:text-primary/80" id="add-income-btn">
+              <i data-lucide="plus" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <div class="flex items-end justify-between">
+            <div>
+              <p class="text-sm text-text-secondary mb-1">总计</p>
+              <p id="monthly-income" class="text-2xl font-bold text-success">¥17,000</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-text-secondary mb-1">较上月</p>
+              <p class="text-sm text-success">+5.2%</p>
+            </div>
+          </div>
+          <div class="mt-4 space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-text-secondary">工资</span>
+              <span>¥15,000</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-text-secondary">兼职</span>
+              <span>¥2,000</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">本月支出</h2>
+            <button class="text-primary hover:text-primary/80" id="add-expense-btn">
+              <i data-lucide="plus" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <div class="flex items-end justify-between">
+            <div>
+              <p class="text-sm text-text-secondary mb-1">总计</p>
+              <p id="monthly-expense" class="text-2xl font-bold text-danger">¥7,300</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-text-secondary mb-1">较上月</p>
+              <p class="text-sm text-danger">+2.8%</p>
+            </div>
+          </div>
+          <div class="mt-4 space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-text-secondary">房租</span>
+              <span>¥3,000</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-text-secondary">餐饮</span>
+              <span>¥2,000</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-text-secondary">其他</span>
+              <span>¥2,300</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 理财模块进度 -->
+      <div class="bg-white rounded-xl p-6 mb-6 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">理财模块进度</h2>
+          <button id="edit-modules-btn" class="text-primary hover:text-primary/80">
+            <i data-lucide="edit" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <div id="modules-container" class="space-y-4">
+          <!-- 模块卡片将通过JS动态生成 -->
+        </div>
+      </div>
+
+      <!-- 最近交易 -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">最近交易</h2>
+          <a href="#" class="text-primary hover:text-primary/80 text-sm" data-tab-link="transactions">查看全部</a>
+        </div>
+        <div id="recent-transactions" class="space-y-4">
+          <!-- 交易记录将通过JS动态生成 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 目标设置页面 -->
+    <div id="goals-tab" class="tab-content hidden">
+      <div class="bg-white rounded-xl p-6 mb-6 card-shadow">
+        <h2 class="text-lg font-bold mb-4">储蓄目标设置</h2>
+        <form id="goal-form" class="space-y-4">
+          <div>
+            <label for="goal-amount-input" class="block text-sm font-medium text-text-secondary mb-1">目标金额</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+              <input type="number" id="goal-amount-input" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" value="100000">
+            </div>
+          </div>
+          
+          <div>
+            <label for="goal-date" class="block text-sm font-medium text-text-secondary mb-1">目标日期</label>
+            <input type="date" id="goal-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" value="2027-01-01">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-text-secondary mb-1">收入情况</label>
+            <div class="space-y-3">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+                <input type="number" id="monthly-salary" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="月薪" value="15000">
+              </div>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+                <input type="number" id="other-income" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="其他收入" value="2000">
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-text-secondary mb-1">固定开销</label>
+            <div class="space-y-3">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+                <input type="number" id="rent" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="房租" value="3000">
+              </div>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+                <input type="number" id="utilities" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="水电费" value="800">
+              </div>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+                <input type="number" id="food" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="餐饮" value="2000">
+              </div>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+                <input type="number" id="transportation" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="交通" value="500">
+              </div>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+                <input type="number" id="other-expenses" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="其他固定支出" value="1000">
+              </div>
+            </div>
+          </div>
+          
+          <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors">保存设置</button>
+        </form>
+      </div>
+      
+      <div class="bg-white rounded-xl p-6 card-shadow">
+        <h2 class="text-lg font-bold mb-4">储蓄计划分析</h2>
+        <div id="savings-analysis" class="space-y-4">
+          <!-- 分析结果将通过JS动态生成 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 资金分配页面 -->
+    <div id="allocation-tab" class="tab-content hidden">
+      <div class="bg-white rounded-xl p-6 mb-6 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">理财模块分配</h2>
+          <button id="add-module-btn" class="text-primary hover:text-primary/80">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </button>
+        </div>
+        
+        <div class="mb-6">
+          <canvas id="allocation-chart" height="200"></canvas>
+        </div>
+        
+        <div id="allocation-modules" class="space-y-4">
+          <!-- 模块将通过JS动态生成 -->
+        </div>
+        
+        <div class="mt-6">
+          <button id="save-allocation-btn" class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors">保存分配</button>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl p-6 card-shadow">
+        <h2 class="text-lg font-bold mb-4">储蓄记录</h2>
+        <div class="mb-4">
+          <div class="flex justify-between items-center mb-2">
+            <label for="savings-amount" class="text-sm font-medium text-text-secondary">存入金额</label>
+            <span id="available-amount" class="text-sm font-medium">可用: ¥9,700</span>
+          </div>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+            <input type="number" id="savings-amount" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="输入存入金额">
+          </div>
+        </div>
+        
+        <button id="save-savings-btn" class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors">确认存入</button>
+      </div>
+    </div>
+
+    <!-- 记账页面 -->
+    <div id="transactions-tab" class="tab-content hidden">
+      <div class="bg-white rounded-xl p-6 mb-6 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">添加交易</h2>
+        </div>
+        
+        <form id="transaction-form" class="space-y-4">
+          <div class="flex space-x-4">
+            <button type="button" id="income-type-btn" class="flex-1 py-2 rounded-lg bg-success text-white font-medium">收入</button>
+            <button type="button" id="expense-type-btn" class="flex-1 py-2 rounded-lg bg-gray-200 text-text-secondary font-medium">支出</button>
+          </div>
+          
+          <div>
+            <label for="transaction-amount" class="block text-sm font-medium text-text-secondary mb-1">金额</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+              <input type="number" id="transaction-amount" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="输入金额">
+            </div>
+          </div>
+          
+          <div>
+            <label for="transaction-category" class="block text-sm font-medium text-text-secondary mb-1">分类</label>
+            <select id="transaction-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+              <!-- 分类选项将通过JS动态生成 -->
+            </select>
+          </div>
+          
+          <div>
+            <label for="transaction-date" class="block text-sm font-medium text-text-secondary mb-1">日期</label>
+            <input type="date" id="transaction-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+          </div>
+          
+          <div>
+            <label for="transaction-description" class="block text-sm font-medium text-text-secondary mb-1">备注</label>
+            <input type="text" id="transaction-description" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="添加备注">
+          </div>
+          
+          <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors">保存交易</button>
+        </form>
+      </div>
+      
+      <div class="bg-white rounded-xl p-6 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">交易记录</h2>
+          <div class="flex space-x-2">
+            <button id="filter-income-btn" class="px-3 py-1 text-sm rounded-full bg-success/10 text-success">收入</button>
+            <button id="filter-expense-btn" class="px-3 py-1 text-sm rounded-full bg-gray-200 text-text-secondary">支出</button>
+            <button id="filter-all-btn" class="px-3 py-1 text-sm rounded-full bg-gray-200 text-text-secondary">全部</button>
+          </div>
+        </div>
+        
+        <div class="mb-4">
+          <div class="relative">
+            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary"></i>
+            <input type="text" id="transaction-search" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="搜索交易记录">
+          </div>
+        </div>
+        
+        <div id="transactions-list" class="space-y-4">
+          <!-- 交易记录将通过JS动态生成 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 统计分析页面 -->
+    <div id="analysis-tab" class="tab-content hidden">
+      <div class="bg-white rounded-xl p-6 mb-6 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">收支趋势</h2>
+          <select id="trend-period" class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+            <option value="monthly">月度</option>
+            <option value="yearly">年度</option>
+          </select>
+        </div>
+        <div class="mb-4">
+          <canvas id="trend-chart" height="200"></canvas>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <h2 class="text-lg font-bold mb-4">支出分类</h2>
+          <div class="mb-4">
+            <canvas id="expense-chart" height="200"></canvas>
+          </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 card-shadow">
+          <h2 class="text-lg font-bold mb-4">理财模块进度</h2>
+          <div class="mb-4">
+            <canvas id="modules-chart" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white rounded-xl p-6 card-shadow">
+        <h2 class="text-lg font-bold mb-4">储蓄健康度</h2>
+        <div id="savings-health" class="space-y-4">
+          <!-- 健康度分析将通过JS动态生成 -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 底部导航栏 -->
+  <footer class="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-40">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-around py-3">
+        <button class="footer-btn active flex flex-col items-center" data-tab="dashboard">
+          <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
+          <span class="text-xs mt-1">仪表盘</span>
+        </button>
+        <button class="footer-btn flex flex-col items-center" data-tab="goals">
+          <i data-lucide="target" class="w-6 h-6"></i>
+          <span class="text-xs mt-1">目标</span>
+        </button>
+        <button class="footer-btn flex flex-col items-center" data-tab="allocation">
+          <i data-lucide="pie-chart" class="w-6 h-6"></i>
+          <span class="text-xs mt-1">分配</span>
+        </button>
+        <button class="footer-btn flex flex-col items-center" data-tab="transactions">
+          <i data-lucide="credit-card" class="w-6 h-6"></i>
+          <span class="text-xs mt-1">记账</span>
+        </button>
+        <button class="footer-btn flex flex-col items-center" data-tab="analysis">
+          <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+          <span class="text-xs mt-1">分析</span>
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 模态框 -->
+  <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modal-title" class="text-lg font-bold">模态框标题</h3>
+        <button id="close-modal" class="text-text-secondary hover:text-dark">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="modal-content" class="mb-6">
+        <!-- 模态框内容将通过JS动态生成 -->
+      </div>
+      <div class="flex justify-end space-x-3">
+        <button id="modal-cancel" class="px-4 py-2 border border-gray-300 rounded-lg text-text-secondary hover:bg-gray-100">取消</button>
+        <button id="modal-confirm" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 初始化图标
+    lucide.createIcons();
+    
+    // 用户数据
+    let userData = {
+      savingsGoal: {
+        totalAmount: 100000,       // 总储蓄目标
+        targetDate: '2027-01-01',  // 目标日期
+        currentAmount: 30000,      // 当前已储蓄金额
+      },
+      income: {
+        monthlySalary: 15000,      // 月薪
+        otherIncome: 2000,         // 其他收入
+      },
+      expenses: {
+        rent: 3000,                // 房租
+        utilities: 800,            // 水电费
+        food: 2000,                // 餐饮
+        transportation: 500,       // 交通
+        otherFixedExpenses: 1000,  // 其他固定支出
+      },
+      financialModules: [
+        {
+          id: 1,
+          name: '应急基金',
+          targetAmount: 20000,
+          currentAmount: 12000,
+          allocationPercentage: 30,
+          color: '#4CAF50'
+        },
+        {
+          id: 2,
+          name: '股票投资',
+          targetAmount: 30000,
+          currentAmount: 8000,
+          allocationPercentage: 25,
+          color: '#2196F3'
+        },
+        {
+          id: 3,
+          name: '定期存款',
+          targetAmount: 25000,
+          currentAmount: 6000,
+          allocationPercentage: 25,
+          color: '#FFC107'
+        },
+        {
+          id: 4,
+          name: '养老金',
+          targetAmount: 25000,
+          currentAmount: 4000,
+          allocationPercentage: 20,
+          color: '#9C27B0'
+        }
+      ],
+      transactions: [
+        {
+          id: 1,
+          date: '2025-07-01',
+          type: 'income',
+          category: 'salary',
+          amount: 15000,
+          description: '七月工资'
+        },
+        {
+          id: 2,
+          date: '2025-07-02',
+          type: 'income',
+          category: 'other',
+          amount: 2000,
+          description: '兼职收入'
+        },
+        {
+          id: 3,
+          date: '2025-07-03',
+          type: 'expense',
+          category: 'rent',
+          amount: 3000,
+          description: '七月房租'
+        },
+        {
+          id: 4,
+          date: '2025-07-04',
+          type: 'expense',
+          category: 'utilities',
+          amount: 800,
+          description: '水电费'
+        },
+        {
+          id: 5,
+          date: '2025-07-05',
+          type: 'expense',
+          category: 'food',
+          amount: 500,
+          description: '超市购物'
+        },
+        {
+          id: 6,
+          date: '2025-07-06',
+          type: 'expense',
+          category: 'transportation',
+          amount: 200,
+          description: '地铁卡充值'
+        },
+        {
+          id: 7,
+          date: '2025-07-10',
+          type: 'expense',
+          category: 'other',
+          amount: 800,
+          description: '电影和聚餐'
+        }
+      ]
+    };
+
+    // 分类数据
+    const categories = {
+      income: [
+        { id: 'salary', name: '工资', icon: 'briefcase' },
+        { id: 'bonus', name: '奖金', icon: 'gift' },
+        { id: 'investment', name: '投资收益', icon: 'trending-up' },
+        { id: 'other', name: '其他', icon: 'plus-circle' }
+      ],
+      expense: [
+        { id: 'rent', name: '房租', icon: 'home' },
+        { id: 'utilities', name: '水电费', icon: 'zap' },
+        { id: 'food', name: '餐饮', icon: 'utensils' },
+        { id: 'transportation', name: '交通', icon: 'bus' },
+        { id: 'shopping', name: '购物', icon: 'shopping-bag' },
+        { id: 'entertainment', name: '娱乐', icon: 'film' },
+        { id: 'healthcare', name: '医疗', icon: 'heart' },
+        { id: 'education', name: '教育', icon: 'book' },
+        { id: 'other', name: '其他', icon: 'more-horizontal' }
+      ]
+    };
+
+    // 从本地存储加载数据
+    function loadUserData() {
+      const savedData = localStorage.getItem('savingsTrackerData');
+      if (savedData) {
+        userData = JSON.parse(savedData);
+      }
+    }
+
+    // 保存数据到本地存储
+    function saveUserData() {
+      localStorage.setItem('savingsTrackerData', JSON.stringify(userData));
+    }
+
+    // 格式化金额
+    function formatCurrency(amount) {
+      return '¥' + amount.toLocaleString('zh-CN');
+    }
+
+    // 计算储蓄进度
+    function calculateSavingsProgress() {
+      const { savingsGoal } = userData;
+      const progress = (savingsGoal.currentAmount / savingsGoal.totalAmount) * 100;
+      return Math.round(progress);
+    }
+
+    // 获取进度颜色
+    function getProgressColor(progress) {
+      if (progress >= 100) return 'text-success';
+      if (progress >= 70) return 'text-warning';
+      return 'text-danger';
+    }
+
+    // 计算到目标日期的剩余时间
+    function calculateTimeLeft() {
+      const today = new Date();
+      const targetDate = new Date(userData.savingsGoal.targetDate);
+      const diffTime = targetDate - today;
+      const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+      return diffMonths;
+    }
+
+    // 计算每月需要储蓄的金额
+    function calculateMonthlyRequired() {
+      const { savingsGoal } = userData;
+      const monthsLeft = calculateTimeLeft();
+      const remainingAmount = savingsGoal.totalAmount - savingsGoal.currentAmount;
+      return Math.ceil(remainingAmount / monthsLeft);
+    }
+
+    // 计算本月收入总额
+    function calculateMonthlyIncome() {
+      const { income } = userData;
+      return income.monthlySalary + income.otherIncome;
+    }
+
+    // 计算本月支出总额
+    function calculateMonthlyExpenses() {
+      const { expenses } = userData;
+      return Object.values(expenses).reduce((sum, expense) => sum + expense, 0);
+    }
+
+    // 计算本月可储蓄金额
+    function calculateMonthlySavings() {
+      return calculateMonthlyIncome() - calculateMonthlyExpenses();
+    }
+
+    // 更新仪表盘
+    function updateDashboard() {
+      // 更新进度环和进度条
+      const progress = calculateSavingsProgress();
+      const circumference = 2 * Math.PI * 40;
+      const offset = circumference - (progress / 100) * circumference;
+      
+      document.getElementById('progress-ring').style.strokeDashoffset = offset;
+      document.getElementById('progress-percentage').textContent = `${progress}%`;
+      document.getElementById('progress-bar').style.width = `${progress}%`;
+      
+      // 更新目标金额和已储蓄金额
+      document.getElementById('goal-amount').textContent = formatCurrency(userData.savingsGoal.totalAmount);
+      document.getElementById('saved-amount').textContent = formatCurrency(userData.savingsGoal.currentAmount);
+      
+      // 更新剩余时间和每月需存金额
+      document.getElementById('time-left').textContent = `${calculateTimeLeft()}个月`;
+      document.getElementById('monthly-required').textContent = formatCurrency(calculateMonthlyRequired());
+      
+      // 更新本月收入和支出
+      document.getElementById('monthly-income').textContent = formatCurrency(calculateMonthlyIncome());
+      document.getElementById('monthly-expense').textContent = formatCurrency(calculateMonthlyExpenses());
+      
+      // 更新理财模块进度
+      updateModulesProgress();
+      
+      // 更新最近交易
+      updateRecentTransactions();
+    }
+
+    // 更新理财模块进度
+    function updateModulesProgress() {
+      const container = document.getElementById('modules-container');
+      container.innerHTML = '';
+      
+      userData.financialModules.forEach(module => {
+        const progress = Math.round((module.currentAmount / module.targetAmount) * 100);
+        const progressColor = getProgressColor(progress);
+        
+        const moduleCard = document.createElement('div');
+        moduleCard.className = 'p-4 border border-gray-100 rounded-lg';
+        moduleCard.innerHTML = `
+          <div class="flex justify-between items-center mb-2">
+            <div class="flex items-center">
+              <div class="w-3 h-3 rounded-full mr-2" style="background-color: ${module.color}"></div>
+              <span class="font-medium">${module.name}</span>
+            </div>
+            <span class="${progressColor} font-medium">${progress}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+            <div class="h-2 rounded-full" style="width: ${progress}%; background-color: ${module.color}"></div>
+          </div>
+          <div class="flex justify-between text-sm text-text-secondary">
+            <span>${formatCurrency(module.currentAmount)}</span>
+            <span>目标: ${formatCurrency(module.targetAmount)}</span>
+          </div>
+        `;
+        
+        container.appendChild(moduleCard);
+      });
+    }
+
+    // 更新最近交易
+    function updateRecentTransactions() {
+      const container = document.getElementById('recent-transactions');
+      container.innerHTML = '';
+      
+      // 获取最近5笔交易
+      const recentTransactions = [...userData.transactions]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 5);
+      
+      if (recentTransactions.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-4 text-text-secondary">
+            <i data-lucide="file-text" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+            <p>暂无交易记录</p>
+          </div>
+        `;
+        return;
+      }
+      
+      recentTransactions.forEach(transaction => {
+        const category = categories[transaction.type].find(c => c.id === transaction.category);
+        const isIncome = transaction.type === 'income';
+        const amountClass = isIncome ? 'text-success' : 'text-danger';
+        const amountSign = isIncome ? '+' : '-';
+        
+        const transactionItem = document.createElement('div');
+        transactionItem.className = 'flex items-center justify-between p-3 border-b border-gray-100';
+        transactionItem.innerHTML = `
+          <div class="flex items-center">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 mr-3">
+              <i data-lucide="${category.icon}" class="w-5 h-5 text-text-secondary"></i>
+            </div>
+            <div>
+              <p class="font-medium">${category.name}</p>
+              <p class="text-xs text-text-secondary">${transaction.date}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="${amountClass} font-medium">${amountSign}${formatCurrency(transaction.amount)}</p>
+            <p class="text-xs text-text-secondary">${transaction.description || ''}</p>
+          </div>
+        `;
+        
+        container.appendChild(transactionItem);
+      });
+      
+      // 重新渲染图标
+      lucide.createIcons();
+    }
+
+    // 初始化目标设置表单
+    function initGoalForm() {
+      document.getElementById('goal-amount-input').value = userData.savingsGoal.totalAmount;
+      document.getElementById('goal-date').value = userData.savingsGoal.targetDate;
+      document.getElementById('monthly-salary').value = userData.income.monthlySalary;
+      document.getElementById('other-income').value = userData.income.otherIncome;
+      document.getElementById('rent').value = userData.expenses.rent;
+      document.getElementById('utilities').value = userData.expenses.utilities;
+      document.getElementById('food').value = userData.expenses.food;
+      document.getElementById('transportation').value = userData.expenses.transportation;
+      document.getElementById('other-expenses').value = userData.expenses.otherFixedExpenses;
+      
+      // 更新储蓄计划分析
+      updateSavingsAnalysis();
+    }
+
+    // 更新储蓄计划分析
+    function updateSavingsAnalysis() {
+      const container = document.getElementById('savings-analysis');
+      const monthlyIncome = calculateMonthlyIncome();
+      const monthlyExpenses = calculateMonthlyExpenses();
+      const monthlySavings = calculateMonthlySavings();
+      const monthlyRequired = calculateMonthlyRequired();
+      const isOnTrack = monthlySavings >= monthlyRequired;
+      
+      container.innerHTML = `
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <p class="text-sm text-text-secondary mb-1">月收入</p>
+            <p class="text-xl font-bold text-success">${formatCurrency(monthlyIncome)}</p>
+          </div>
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <p class="text-sm text-text-secondary mb-1">月支出</p>
+            <p class="text-xl font-bold text-danger">${formatCurrency(monthlyExpenses)}</p>
+          </div>
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <p class="text-sm text-text-secondary mb-1">月储蓄</p>
+            <p class="text-xl font-bold ${monthlySavings >= 0 ? 'text-success' : 'text-danger'}">${formatCurrency(Math.abs(monthlySavings))}</p>
+          </div>
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <p class="text-sm text-text-secondary mb-1">需储蓄</p>
+            <p class="text-xl font-bold text-primary">${formatCurrency(monthlyRequired)}</p>
+          </div>
+        </div>
+        
+        <div class="p-4 rounded-lg ${isOnTrack ? 'bg-success/10' : 'bg-danger/10'}">
+          <div class="flex items-center mb-2">
+            <i data-lucide="${isOnTrack ? 'check-circle' : 'alert-circle'}" class="w-5 h-5 mr-2 ${isOnTrack ? 'text-success' : 'text-danger'}"></i>
+            <h3 class="font-medium ${isOnTrack ? 'text-success' : 'text-danger'}">${isOnTrack ? '储蓄计划正常' : '储蓄计划有风险'}</h3>
+          </div>
+          <p class="text-sm text-text-secondary">
+            ${isOnTrack 
+              ? `按照当前的储蓄速度，您将能够按时达成目标。每月可多存 ${formatCurrency(monthlySavings - monthlyRequired)}。` 
+              : `按照当前的储蓄速度，您需要 ${Math.ceil(monthlyRequired / monthlySavings)} 个月才能达成目标，建议增加收入或减少支出。`
+            }
+          </p>
+        </div>
+      `;
+      
+      // 重新渲染图标
+      lucide.createIcons();
+    }
+
+    // 初始化资金分配页面
+    function initAllocationPage() {
+      // 更新可用金额
+      document.getElementById('available-amount').textContent = `可用: ${formatCurrency(calculateMonthlySavings())}`;
+      
+      // 初始化分配图表
+      initAllocationChart();
+      
+      // 更新分配模块列表
+      updateAllocationModules();
+    }
+
+    // 初始化分配图表
+    function initAllocationChart() {
+      const ctx = document.getElementById('allocation-chart').getContext('2d');
+      
+      // 销毁已存在的图表
+      if (window.allocationChart) {
+        window.allocationChart.destroy();
+      }
+      
+      window.allocationChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: userData.financialModules.map(module => module.name),
+          datasets: [{
+            data: userData.financialModules.map(module => module.allocationPercentage),
+            backgroundColor: userData.financialModules.map(module => module.color),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true,
+                pointStyle: 'circle'
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.label}: ${context.raw}%`;
+                }
+              }
+            }
+          },
+          cutout: '70%'
+        }
+      });
+    }
+
+    // 更新分配模块列表
+    function updateAllocationModules() {
+      const container = document.getElementById('allocation-modules');
+      container.innerHTML = '';
+      
+      userData.financialModules.forEach((module, index) => {
+        const moduleItem = document.createElement('div');
+        moduleItem.className = 'flex items-center justify-between p-3 border-b border-gray-100';
+        moduleItem.innerHTML = `
+          <div class="flex items-center">
+            <div class="w-3 h-3 rounded-full mr-2" style="background-color: ${module.color}"></div>
+            <span class="font-medium">${module.name}</span>
+          </div>
+          <div class="flex items-center">
+            <input type="range" min="0" max="100" value="${module.allocationPercentage}" 
+                  class="w-24 mr-3 accent-${module.color}" 
+                  onchange="updateModulePercentage(${index}, this.value)">
+            <span class="text-sm font-medium">${module.allocationPercentage}%</span>
+          </div>
+        `;
+        
+        container.appendChild(moduleItem);
+      });
+    }
+
+    // 更新模块分配比例
+    function updateModulePercentage(index, value) {
+      userData.financialModules[index].allocationPercentage = parseInt(value);
+      
+      // 重新计算并调整比例，确保总和为100%
+      const totalPercentage = userData.financialModules.reduce((sum, module) => sum + module.allocationPercentage, 0);
+      
+      if (totalPercentage !== 100) {
+        const diff = 100 - totalPercentage;
+        // 将差值平均分配给所有模块
+        const adjustment = diff / userData.financialModules.length;
+        
+        userData.financialModules.forEach((module, i) => {
+          module.allocationPercentage += adjustment;
+          // 确保没有负数百分比
+          if (module.allocationPercentage < 0) {
+            module.allocationPercentage = 0;
+          }
+        });
+        
+        // 再次计算总和并调整最后一个模块
+        const newTotalPercentage = userData.financialModules.reduce((sum, module) => sum + module.allocationPercentage, 0);
+        if (newTotalPercentage !== 100) {
+          userData.financialModules[userData.financialModules.length - 1].allocationPercentage += (100 - newTotalPercentage);
+        }
+        
+        // 四舍五入并再次调整，确保总和为100%
+        userData.financialModules.forEach((module, i) => {
+          module.allocationPercentage = Math.round(module.allocationPercentage);
+        });
+        
+        const roundedTotalPercentage = userData.financialModules.reduce((sum, module) => sum + module.allocationPercentage, 0);
+        if (roundedTotalPercentage !== 100) {
+          userData.financialModules[userData.financialModules.length - 1].allocationPercentage += (100 - roundedTotalPercentage);
+        }
+      }
+      
+      // 更新图表和模块列表
+      initAllocationChart();
+      updateAllocationModules();
+    }
+
+    // 初始化记账页面
+    function initTransactionsPage() {
+      // 设置默认日期为今天
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('transaction-date').value = today;
+      
+      // 初始化分类选择器
+      updateTransactionCategories('income');
+      
+      // 更新交易记录列表
+      updateTransactionsList();
+    }
+
+    // 更新交易分类选择器
+    function updateTransactionCategories(type) {
+      const select = document.getElementById('transaction-category');
+      select.innerHTML = '';
+      
+      categories[type].forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = category.name;
+        select.appendChild(option);
+      });
+    }
+
+    // 更新交易记录列表
+    function updateTransactionsList(filter = 'all', searchTerm = '') {
+      const container = document.getElementById('transactions-list');
+      container.innerHTML = '';
+      
+      // 过滤交易记录
+      let filteredTransactions = [...userData.transactions];
+      
+      if (filter !== 'all') {
+        filteredTransactions = filteredTransactions.filter(transaction => transaction.type === filter);
+      }
+      
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredTransactions = filteredTransactions.filter(transaction => 
+          transaction.description?.toLowerCase().includes(term) || 
+          categories[transaction.type].find(c => c.id === transaction.category)?.name.toLowerCase().includes(term)
+        );
+      }
+      
+      // 按日期排序
+      filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      if (filteredTransactions.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-4 text-text-secondary">
+            <i data-lucide="file-text" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+            <p>暂无交易记录</p>
+          </div>
+        `;
+        return;
+      }
+      
+      // 按日期分组
+      const groupedTransactions = {};
+      filteredTransactions.forEach(transaction => {
+        const date = transaction.date;
+        if (!groupedTransactions[date]) {
+          groupedTransactions[date] = [];
+        }
+        groupedTransactions[date].push(transaction);
+      });
+      
+      // 生成交易记录列表
+      Object.entries(groupedTransactions).forEach(([date, transactions]) => {
+        // 日期标题
+        const dateHeader = document.createElement('div');
+        dateHeader.className = 'flex items-center justify-between py-2 border-b border-gray-200 mb-2';
+        
+        // 格式化日期
+        const formattedDate = new Date(date).toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'long'
+        });
+        
+        // 计算当日总额
+        const dayTotal = transactions.reduce((sum, transaction) => {
+          return sum + (transaction.type === 'income' ? transaction.amount : -transaction.amount);
+        }, 0);
+        
+        dateHeader.innerHTML = `
+          <h3 class="font-medium">${formattedDate}</h3>
+          <span class="${dayTotal >= 0 ? 'text-success' : 'text-danger'} font-medium">
+            ${dayTotal >= 0 ? '+' : ''}${formatCurrency(dayTotal)}
+          </span>
+        `;
+        
+        container.appendChild(dateHeader);
+        
+        // 交易记录
+        transactions.forEach(transaction => {
+          const category = categories[transaction.type].find(c => c.id === transaction.category);
+          const isIncome = transaction.type === 'income';
+          const amountClass = isIncome ? 'text-success' : 'text-danger';
+          const amountSign = isIncome ? '+' : '-';
+          
+          const transactionItem = document.createElement('div');
+          transactionItem.className = 'flex items-center justify-between p-3 border-b border-gray-100';
+          transactionItem.innerHTML = `
+            <div class="flex items-center">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 mr-3">
+                <i data-lucide="${category.icon}" class="w-5 h-5 text-text-secondary"></i>
+              </div>
+              <div>
+                <p class="font-medium">${category.name}</p>
+                <p class="text-xs text-text-secondary">${transaction.description || ''}</p>
+              </div>
+            </div>
+            <div class="${amountClass} font-medium">${amountSign}${formatCurrency(transaction.amount)}</div>
+          `;
+          
+          container.appendChild(transactionItem);
+        });
+      });
+      
+      // 重新渲染图标
+      lucide.createIcons();
+    }
+
+    // 初始化统计分析页面
+    function initAnalysisPage() {
+      // 初始化趋势图表
+      initTrendChart('monthly');
+      
+      // 初始化支出分类图表
+      initExpenseChart();
+      
+      // 初始化理财模块进度图表
+      initModulesChart();
+      
+      // 更新储蓄健康度
+      updateSavingsHealth();
+    }
+
+    // 初始化趋势图表
+    function initTrendChart(period) {
+      const ctx = document.getElementById('trend-chart').getContext('2d');
+      
+      // 销毁已存在的图表
+      if (window.trendChart) {
+        window.trendChart.destroy();
+      }
+      
+      // 生成模拟数据
+      const labels = [];
+      const incomeData = [];
+      const expenseData = [];
+      
+      if (period === 'monthly') {
+        // 生成过去6个月的数据
+        for (let i = 5; i >= 0; i--) {
+          const date = new Date();
+          date.setMonth(date.getMonth() - i);
+          labels.push(date.toLocaleDateString('zh-CN', { month: 'short' }));
+          
+          // 基于当前收入/支出生成随机数据
+          const baseIncome = calculateMonthlyIncome();
+          const baseExpense = calculateMonthlyExpenses();
+          
+          incomeData.push(baseIncome * (0.9 + Math.random() * 0.2));
+          expenseData.push(baseExpense * (0.9 + Math.random() * 0.2));
+        }
+      } else {
+        // 生成过去12个月的数据
+        for (let i = 11; i >= 0; i--) {
+          const date = new Date();
+          date.setMonth(date.getMonth() - i);
+          labels.push(date.toLocaleDateString('zh-CN', { month: 'short' }));
+          
+          // 基于当前收入/支出生成随机数据，并加入季节性波动
+          const baseIncome = calculateMonthlyIncome();
+          const baseExpense = calculateMonthlyExpenses();
+          const monthFactor = 0.8 + Math.sin(i / 12 * Math.PI * 2) * 0.1 + Math.random() * 0.2;
+          
+          incomeData.push(baseIncome * monthFactor);
+          expenseData.push(baseExpense * monthFactor);
+        }
+      }
+      
+      window.trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: '收入',
+              data: incomeData,
+              borderColor: '#4CAF50',
+              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: '支出',
+              data: expenseData,
+              borderColor: '#F44336',
+              backgroundColor: 'rgba(244, 67, 54, 0.1)',
+              fill: true,
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${formatCurrency(Math.round(context.raw))}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '¥' + (value / 1000) + 'k';
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // 初始化支出分类图表
+    function initExpenseChart() {
+      const ctx = document.getElementById('expense-chart').getContext('2d');
+      
+      // 销毁已存在的图表
+      if (window.expenseChart) {
+        window.expenseChart.destroy();
+      }
+      
+      // 获取支出分类数据
+      const expenseCategories = categories.expense.filter(c => c.id !== 'other');
+      const expenseData = expenseCategories.map(category => {
+        return userData.expenses[category.id] || 0;
+      });
+      
+      // 添加其他支出
+      const otherExpense = userData.expenses.otherFixedExpenses || 0;
+      expenseCategories.push(categories.expense.find(c => c.id === 'other'));
+      expenseData.push(otherExpense);
+      
+      window.expenseChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: expenseCategories.map(c => c.name),
+          datasets: [{
+            data: expenseData,
+            backgroundColor: [
+              '#FF6384',
+              '#36A2EB',
+              '#FFCE56',
+              '#4BC0C0',
+              '#9966FF',
+              '#FF9F40',
+              '#FF6384',
+              '#C9CBCF',
+              '#4BC0C0'
+            ],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 10,
+                usePointStyle: true,
+                pointStyle: 'circle'
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const total = context.dataset.data.reduce((sum, value) => sum + value, 0);
+                  const percentage = Math.round((context.raw / total) * 100);
+                  return `${context.label}: ${formatCurrency(context.raw)} (${percentage}%)`;
+                }
+              }
+            }
+          },
+          cutout: '70%'
+        }
+      });
+    }
+
+    // 初始化理财模块进度图表
+    function initModulesChart() {
+      const ctx = document.getElementById('modules-chart').getContext('2d');
+      
+      // 销毁已存在的图表
+      if (window.modulesChart) {
+        window.modulesChart.destroy();
+      }
+      
+      window.modulesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: userData.financialModules.map(module => module.name),
+          datasets: [
+            {
+              label: '当前金额',
+              data: userData.financialModules.map(module => module.currentAmount),
+              backgroundColor: userData.financialModules.map(module => module.color),
+              borderWidth: 0,
+              borderRadius: 5
+            },
+            {
+              label: '目标金额',
+              data: userData.financialModules.map(module => module.targetAmount),
+              backgroundColor: 'rgba(0, 0, 0, 0.05)',
+              borderWidth: 0,
+              borderRadius: 5
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '¥' + (value / 1000) + 'k';
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // 更新储蓄健康度
+    function updateSavingsHealth() {
+      const container = document.getElementById('savings-health');
+      
+      // 计算各项健康指标
+      const savingsRate = (calculateMonthlySavings() / calculateMonthlyIncome()) * 100;
+      const emergencyFundProgress = userData.financialModules.find(m => m.name === '应急基金')?.currentAmount || 0;
+      const emergencyFundTarget = userData.financialModules.find(m => m.name === '应急基金')?.targetAmount || 1;
+      const emergencyFundRatio = (emergencyFundProgress / emergencyFundTarget) * 100;
+      const overallProgress = calculateSavingsProgress();
+      const isOnTrack = calculateMonthlySavings() >= calculateMonthlyRequired();
+      
+      // 计算健康度总分
+      let healthScore = 0;
+      if (savingsRate >= 30) healthScore += 30;
+      else if (savingsRate >= 20) healthScore += 20;
+      else if (savingsRate >= 10) healthScore += 10;
+      
+      if (emergencyFundRatio >= 100) healthScore += 30;
+      else if (emergencyFundRatio >= 70) healthScore += 20;
+      else if (emergencyFundRatio >= 50) healthScore += 10;
+      
+      if (overallProgress >= 70) healthScore += 20;
+      else if (overallProgress >= 50) healthScore += 15;
+      else if (overallProgress >= 30) healthScore += 10;
+      else healthScore += 5;
+      
+      if (isOnTrack) healthScore += 20;
+      else healthScore += 5;
+      
+      // 健康度评级
+      let healthGrade, healthColor;
+      if (healthScore >= 80) {
+        healthGrade = '优秀';
+        healthColor = 'text-success';
+      } else if (healthScore >= 60) {
+        healthGrade = '良好';
+        healthColor = 'text-primary';
+      } else if (healthScore >= 40) {
+        healthGrade = '一般';
+        healthColor = 'text-warning';
+      } else {
+        healthGrade = '需改善';
+        healthColor = 'text-danger';
+      }
+      
+      container.innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-medium mb-1">储蓄健康度</h3>
+            <p class="text-sm text-text-secondary">综合评估您的储蓄状况</p>
+          </div>
+          <div class="text-right">
+            <p class="${healthColor} text-2xl font-bold">${healthScore}分</p>
+            <p class="${healthColor} font-medium">${healthGrade}</p>
+          </div>
+        </div>
+        
+        <div class="space-y-4">
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-medium">储蓄率</span>
+              <span class="text-sm font-medium">${savingsRate.toFixed(1)}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="h-2 rounded-full ${savingsRate >= 30 ? 'bg-success' : savingsRate >= 20 ? 'bg-primary' : savingsRate >= 10 ? 'bg-warning' : 'bg-danger'}" style="width: ${Math.min(savingsRate, 100)}%"></div>
+            </div>
+            <p class="text-xs text-text-secondary mt-1">建议储蓄率不低于月收入的20%</p>
+          </div>
+          
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-medium">应急基金</span>
+              <span class="text-sm font-medium">${emergencyFundRatio.toFixed(1)}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="h-2 rounded-full ${emergencyFundRatio >= 100 ? 'bg-success' : emergencyFundRatio >= 70 ? 'bg-primary' : emergencyFundRatio >= 50 ? 'bg-warning' : 'bg-danger'}" style="width: ${Math.min(emergencyFundRatio, 100)}%"></div>
+            </div>
+            <p class="text-xs text-text-secondary mt-1">建议应急基金至少覆盖3-6个月的生活费</p>
+          </div>
+          
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-medium">目标进度</span>
+              <span class="text-sm font-medium">${overallProgress}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="h-2 rounded-full ${overallProgress >= 70 ? 'bg-success' : overallProgress >= 50 ? 'bg-primary' : overallProgress >= 30 ? 'bg-warning' : 'bg-danger'}" style="width: ${overallProgress}%"></div>
+            </div>
+            <p class="text-xs text-text-secondary mt-1">根据时间和目标金额评估的进度</p>
+          </div>
+          
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-medium">计划执行</span>
+              <span class="text-sm font-medium">${isOnTrack ? '正常' : '需调整'}</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="h-2 rounded-full ${isOnTrack ? 'bg-success' : 'bg-danger'}" style="width: ${isOnTrack ? 100 : 50}%"></div>
+            </div>
+            <p class="text-xs text-text-secondary mt-1">当前储蓄速度是否能按时达成目标</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // 显示模态框
+    function showModal(title, content, confirmCallback, cancelCallback = null) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-content').innerHTML = content;
+      document.getElementById('modal').classList.remove('hidden');
+      
+      // 设置确认按钮回调
+      document.getElementById('modal-confirm').onclick = () => {
+        confirmCallback();
+        hideModal();
+      };
+      
+      // 设置取消按钮回调
+      document.getElementById('modal-cancel').onclick = () => {
+        if (cancelCallback) {
+          cancelCallback();
+        }
+        hideModal();
+      };
+      
+      // 重新渲染图标
+      lucide.createIcons();
+    }
+
+    // 隐藏模态框
+    function hideModal() {
+      document.getElementById('modal').classList.add('hidden');
+    }
+
+    // 切换页面
+    function switchTab(tabId) {
+      // 更新标签按钮状态
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.dataset.tab === tabId) {
+          btn.classList.add('active', 'bg-primary', 'text-white');
+          btn.classList.remove('bg-white', 'text-text-secondary');
+        } else {
+          btn.classList.remove('active', 'bg-primary', 'text-white');
+          btn.classList.add('bg-white', 'text-text-secondary');
+        }
+      });
+      
+      // 更新底部导航按钮状态
+      document.querySelectorAll('.footer-btn').forEach(btn => {
+        if (btn.dataset.tab === tabId) {
+          btn.classList.add('active', 'text-primary');
+        } else {
+          btn.classList.remove('active', 'text-primary');
+        }
+      });
+      
+      // 显示对应页面内容
+      document.querySelectorAll('.tab-content').forEach(content => {
+        if (content.id === `${tabId}-tab`) {
+          content.classList.remove('hidden');
+          content.classList.add('active');
+        } else {
+          content.classList.add('hidden');
+          content.classList.remove('active');
+        }
+      });
+      
+      // 初始化对应页面
+      if (tabId === 'dashboard') {
+        updateDashboard();
+      } else if (tabId === 'goals') {
+        initGoalForm();
+      } else if (tabId === 'allocation') {
+        initAllocationPage();
+      } else if (tabId === 'transactions') {
+        initTransactionsPage();
+      } else if (tabId === 'analysis') {
+        initAnalysisPage();
+      }
+    }
+
+    // 添加理财模块
+    function addFinancialModule() {
+      const content = `
+        <div class="space-y-4">
+          <div>
+            <label for="module-name" class="block text-sm font-medium text-text-secondary mb-1">模块名称</label>
+            <input type="text" id="module-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="输入模块名称">
+          </div>
+          
+          <div>
+            <label for="module-target" class="block text-sm font-medium text-text-secondary mb-1">目标金额</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-text-secondary">¥</span>
+              <input type="number" id="module-target" class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="输入目标金额">
+            </div>
+          </div>
+          
+          <div>
+            <label for="module-color" class="block text-sm font-medium text-text-secondary mb-1">颜色</label>
+            <div class="grid grid-cols-6 gap-2">
+              <div class="w-8 h-8 rounded-full bg-success cursor-pointer color-option" data-color="#4CAF50"></div>
+              <div class="w-8 h-8 rounded-full bg-info cursor-pointer color-option" data-color="#2196F3"></div>
+              <div class="w-8 h-8 rounded-full bg-warning cursor-pointer color-option" data-color="#FFC107"></div>
+              <div class="w-8 h-8 rounded-full bg-secondary cursor-pointer color-option" data-color="#9C27B0"></div>
+              <div class="w-8 h-8 rounded-full bg-danger cursor-pointer color-option" data-color="#F44336"></div>
+              <div class="w-8 h-8 rounded-full bg-primary cursor-pointer color-option" data-color="#8A9A5B"></div>
+            </div>
+            <input type="hidden" id="module-color" value="#4CAF50">
+          </div>
+        </div>
+      `;
+      
+      showModal('添加理财模块', content, () => {
+        const name = document.getElementById('module-name').value;
+        const targetAmount = parseInt(document.getElementById('module-target').value);
+        const color = document.getElementById('module-color').value;
+        
+        if (name && targetAmount > 0) {
+          // 计算新模块的分配比例（平均分配现有比例）
+          const totalCurrentPercentage = userData.financialModules.reduce((sum, module) => sum + module.allocationPercentage, 0);
+          const newPercentage = Math.round((100 - totalCurrentPercentage) / userData.financialModules.length);
+          
+          // 调整现有模块的比例
+          userData.financialModules.forEach(module => {
+            module.allocationPercentage -= newPercentage;
+          });
+          
+          // 添加新模块
+          userData.financialModules.push({
+            id: Date.now(),
+            name,
+            targetAmount,
+            currentAmount: 0,
+            allocationPercentage: newPercentage * userData.financialModules.length,
+            color
+          });
+          
+          // 保存数据
+          saveUserData();
+          
+          // 更新页面
+          initAllocationPage();
+          updateDashboard();
+        }
+      });
+      
+      // 添加颜色选择事件
+      document.querySelectorAll('.color-option').forEach(option => {
+        option.addEventListener('click', () => {
+          document.querySelectorAll('.color-option').forEach(opt => {
+            opt.classList.remove('ring-2', 'ring-offset-2', 'ring-primary');
+          });
+          option.classList.add('ring-2', 'ring-offset-2', 'ring-primary');
+          document.getElementById('module-color').value = option.dataset.color;
+        });
+      });
+    }
+
+    // 分配储蓄金额到各模块
+    function allocateSavings() {
+      const amount = parseInt(document.getElementById('savings-amount').value);
+      
+      if (!amount || amount <= 0) {
+        alert('请输入有效的金额');
+        return;
+      }
+      
+      // 检查是否有足够的可支配收入
+      const availableSavings = calculateMonthlySavings();
+      if (amount > availableSavings) {
+        alert(`可用金额不足，最多可存入 ${formatCurrency(availableSavings)}`);
+        return;
+      }
+      
+      // 按比例分配金额到各模块
+      userData.financialModules.forEach(module => {
+        const allocationAmount = Math.round((amount * module.allocationPercentage) / 100);
+        module.currentAmount += allocationAmount;
+      });
+      
+      // 更新总储蓄金额
+      userData.savingsGoal.currentAmount += amount;
+      
+      // 添加交易记录
+      userData.transactions.push({
+        id: Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        type: 'expense',
+        category: 'other',
+        amount,
+        description: '储蓄存款'
+      });
+      
+      // 保存数据
+      saveUserData();
+      
+      // 更新页面
+      document.getElementById('savings-amount').value = '';
+      initAllocationPage();
+      updateDashboard();
+      updateTransactionsList();
+      
+      alert(`成功存入 ${formatCurrency(amount)}`);
+    }
+
+    // 添加交易记录
+    function addTransaction(type, amount, category, date, description) {
+      const transaction = {
+        id: Date.now(),
+        date,
+        type,
+        category,
+        amount,
+        description
+      };
+      
+      userData.transactions.push(transaction);
+      
+      // 更新收入或支出
+      if (type === 'income') {
+        if (category === 'salary') {
+          userData.income.monthlySalary += amount;
+        } else {
+          userData.income.otherIncome += amount;
+        }
+      } else if (type === 'expense') {
+        if (userData.expenses.hasOwnProperty(category)) {
+          userData.expenses[category] += amount;
+        } else {
+          userData.expenses.otherFixedExpenses += amount;
+        }
+      }
+      
+      // 保存数据
+      saveUserData();
+      
+      // 更新页面
+      updateDashboard();
+      updateTransactionsList();
+      initAllocationPage();
+    }
+
+    // 事件监听器
+    document.addEventListener('DOMContentLoaded', () => {
+      // 加载数据
+      loadUserData();
+      
+      // 初始化仪表盘
+      updateDashboard();
+      
+      // 标签切换事件
+      document.querySelectorAll('.tab-btn, .footer-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          switchTab(btn.dataset.tab);
+        });
+      });
+      
+      // 目标设置表单提交
+      document.getElementById('goal-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        // 更新用户数据
+        userData.savingsGoal.totalAmount = parseInt(document.getElementById('goal-amount-input').value);
+        userData.savingsGoal.targetDate = document.getElementById('goal-date').value;
+        userData.income.monthlySalary = parseInt(document.getElementById('monthly-salary').value);
+        userData.income.otherIncome = parseInt(document.getElementById('other-income').value);
+        userData.expenses.rent = parseInt(document.getElementById('rent').value);
+        userData.expenses.utilities = parseInt(document.getElementById('utilities').value);
+        userData.expenses.food = parseInt(document.getElementById('food').value);
+        userData.expenses.transportation = parseInt(document.getElementById('transportation').value);
+        userData.expenses.otherFixedExpenses = parseInt(document.getElementById('other-expenses').value);
+        
+        // 保存数据
+        saveUserData();
+        
+        // 更新页面
+        updateDashboard();
+        updateSavingsAnalysis();
+        initAllocationPage();
+        
+        alert('设置已保存');
+      });
+      
+      // 收入/支出类型切换
+      document.getElementById('income-type-btn').addEventListener('click', () => {
+        document.getElementById('income-type-btn').classList.add('bg-success', 'text-white');
+        document.getElementById('income-type-btn').classList.remove('bg-gray-200', 'text-text-secondary');
+        document.getElementById('expense-type-btn').classList.add('bg-gray-200', 'text-text-secondary');
+        document.getElementById('expense-type-btn').classList.remove('bg-success', 'text-white');
+        updateTransactionCategories('income');
+      });
+      
+      document.getElementById('expense-type-btn').addEventListener('click', () => {
+        document.getElementById('expense-type-btn').classList.add('bg-danger', 'text-white');
+        document.getElementById('expense-type-btn').classList.remove('bg-gray-200', 'text-text-secondary');
+        document.getElementById('income-type-btn').classList.add('bg-gray-200', 'text-text-secondary');
+        document.getElementById('income-type-btn').classList.remove('bg-danger', 'text-white');
+        updateTransactionCategories('expense');
+      });
+      
+      // 交易表单提交
+      document.getElementById('transaction-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const type = document.getElementById('income-type-btn').classList.contains('bg-success') ? 'income' : 'expense';
+        const amount = parseInt(document.getElementById('transaction-amount').value);
+        const category = document.getElementById('transaction-category').value;
+        const date = document.getElementById('transaction-date').value;
+        const description = document.getElementById('transaction-description').value;
+        
+        if (!amount || amount <= 0) {
+          alert('请输入有效的金额');
+          return;
+        }
+        
+        if (!category) {
+          alert('请选择分类');
+          return;
+        }
+        
+        if (!date) {
+          alert('请选择日期');
+          return;
+        }
+        
+        // 添加交易记录
+        addTransaction(type, amount, category, date, description);
+        
+        // 重置表单
+        document.getElementById('transaction-amount').value = '';
+        document.getElementById('transaction-description').value = '';
+        
+        alert('交易记录已保存');
+      });
+      
+      // 交易记录筛选
+      document.getElementById('filter-income-btn').addEventListener('click', () => {
+        document.getElementById('filter-income-btn').classList.add('bg-success/10', 'text-success');
+        document.getElementById('filter-income-btn').classList.remove('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-expense-btn').classList.add('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-expense-btn').classList.remove('bg-danger/10', 'text-danger');
+        document.getElementById('filter-all-btn').classList.add('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-all-btn').classList.remove('bg-primary/10', 'text-primary');
+        updateTransactionsList('income');
+      });
+      
+      document.getElementById('filter-expense-btn').addEventListener('click', () => {
+        document.getElementById('filter-expense-btn').classList.add('bg-danger/10', 'text-danger');
+        document.getElementById('filter-expense-btn').classList.remove('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-income-btn').classList.add('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-income-btn').classList.remove('bg-success/10', 'text-success');
+        document.getElementById('filter-all-btn').classList.add('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-all-btn').classList.remove('bg-primary/10', 'text-primary');
+        updateTransactionsList('expense');
+      });
+      
+      document.getElementById('filter-all-btn').addEventListener('click', () => {
+        document.getElementById('filter-all-btn').classList.add('bg-primary/10', 'text-primary');
+        document.getElementById('filter-all-btn').classList.remove('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-income-btn').classList.add('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-income-btn').classList.remove('bg-success/10', 'text-success');
+        document.getElementById('filter-expense-btn').classList.add('bg-gray-200', 'text-text-secondary');
+        document.getElementById('filter-expense-btn').classList.remove('bg-danger/10', 'text-danger');
+        updateTransactionsList('all');
+      });
+      
+      // 交易记录搜索
+      document.getElementById('transaction-search').addEventListener('input', (e) => {
+        const searchTerm = e.target.value;
+        const activeFilter = document.getElementById('filter-all-btn').classList.contains('bg-primary/10') ? 'all' :
+                            document.getElementById('filter-income-btn').classList.contains('bg-success/10') ? 'income' : 'expense';
+        updateTransactionsList(activeFilter, searchTerm);
+      });
+      
+      // 趋势图表周期切换
+      document.getElementById('trend-period').addEventListener('change', (e) => {
+        initTrendChart(e.target.value);
+      });
+      
+      // 保存分配按钮
+      document.getElementById('save-allocation-btn').addEventListener('click', () => {
+        saveUserData();
+        alert('分配设置已保存');
+      });
+      
+      // 确认存入按钮
+      document.getElementById('save-savings-btn').addEventListener('click', allocateSavings);
+      
+      // 添加理财模块按钮
+      document.getElementById('add-module-btn').addEventListener('click', addFinancialModule);
+      
+      // 编辑目标按钮
+      document.getElementById('edit-goal-btn').addEventListener('click', () => {
+        switchTab('goals');
+      });
+      
+      // 编辑模块按钮
+      document.getElementById('edit-modules-btn').addEventListener('click', () => {
+        switchTab('allocation');
+      });
+      
+      // 添加收入按钮
+      document.getElementById('add-income-btn').addEventListener('click', () => {
+        switchTab('transactions');
+        document.getElementById('income-type-btn').click();
+      });
+      
+      // 添加支出按钮
+      document.getElementById('add-expense-btn').addEventListener('click', () => {
+        switchTab('transactions');
+        document.getElementById('expense-type-btn').click();
+      });
+      
+      // 关闭模态框按钮
+      document.getElementById('close-modal').addEventListener('click', hideModal);
+      
+      // 点击模态框背景关闭
+      document.getElementById('modal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('modal')) {
+          hideModal();
+        }
+      });
+      
+      // 标签链接
+      document.querySelectorAll('[data-tab-link]').forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          switchTab(link.dataset.tabLink);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
